@@ -1,24 +1,54 @@
 import numpy as np
-import scipy.integrate as integrate
 import scipy.special as sps
 
 
-def free_energy(beta,n,j):
+from cmath import acosh, atanh, cos, cosh, exp, log, pi, sinh, sqrt
+
+from scipy.special import logsumexp
+
+
+
+
+def free_energy(beta,l,j):
     
-    dd = 5/(4*np.sqrt(n))
-    d = np.pi**2/n
-    z = 2*beta*j/(1+dd)
-    k = 2*np.sinh(z)/((1+d)*np.cosh(z)**2)
-    
-    fbeta = -np.log(2)/2 - np.log(np.cosh(z)) - integrate.romberg( lambda x: np.log( 1 + np.sqrt(1-k**2*np.cos(x)**2)) ,0,np.pi)/(2*np.pi)
+    beta_c = 1 / 2 * log(1 + sqrt(2)).real
+    h = beta*j
+    hs = atanh(exp(-2 * h))
+    def gamma(beta,l,j,r):
+        output = acosh(
+            cosh(2 * hs) * cosh(2 * h) -
+            sinh(2 * hs) * sinh(2 * h) * cos(r * pi / l))
+        if r == 2 * l and beta < beta_c:
+            output *= -1
+        return output
+    logz = (-log(2) + 1 / 2 * l**2 * log(2 * sinh(2 * h)) +
+            logsumexp([
+                sum([
+                    log(2 * cosh(l / 2 * gamma(l, j, beta, 2 * r)))
+                    for r in range(1, l + 1)
+                ]),
+                sum([
+                    log(2 * sinh(l / 2 * gamma(l, j, beta, 2 * r)))
+                    for r in range(1, l + 1)
+                ]),
+                sum([
+                    log(2 * cosh(l / 2 * gamma(l, j, beta, 2 * r - 1)))
+                    for r in range(1, l + 1)
+                ]),
+                sum([
+                    log(2 * sinh(l / 2 * gamma(l, j, beta, 2 * r - 1)))
+                    for r in range(1, l + 1)
+                ]),
+            ])).real
+    fbeta = -logz/(l**2)
     
     
     return fbeta/beta
 
-def heat_capacity(beta,n,j):
+def heat_capacity(beta,l,j):
     
-    dd = 5/(4*np.sqrt(n))
-    d = np.pi**2/n
+    dd = 5/(4*np.sqrt(l**2))
+    d = np.pi**2/(l**2)
     z = 2*beta*j/(1+dd)
     k = 2*np.sinh(z)/((1+d)*np.cosh(z)**2)
     

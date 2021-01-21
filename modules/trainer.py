@@ -16,6 +16,9 @@ class Trainer(nn.Module):
         self.k = k
         self.r = r
         self.beta = beta
+        
+    def anneal(self,beta):
+        self.beta = beta
     
     def free_energy(self,res,v,beta,j_exchange=1):
         batches = res.size()[0]
@@ -57,10 +60,10 @@ class Trainer(nn.Module):
                 for i in range(sequence):
                     e[s] = e[s] + torch.sum((v[s,i-1,:]*2-1) * (v[s,i,:]*2-1))
                     e[s] = e[s] + torch.sum((v[s,:,i-1]*2-1) * (v[s,:,i]*2-1))
-                e[s] = e[s]*j_exchange/(sequence*sequence)
+                e[s] = e[s]*j_exchange
         
         
-        return (beta**2)*e.var()
+        return (beta**2)*e.var()/(sequence**2)
     
     def magnetization(self,v):
         return (v*2-1).type(torch.float).mean()

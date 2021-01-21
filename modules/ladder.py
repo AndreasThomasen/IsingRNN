@@ -116,6 +116,7 @@ class Ladder(nn.Module):
         self.rnns = nn.ModuleList([Memnode(self.ms[i], self.c_length, self.layers, mem_type) for i in range(1,k-1)])
         self.arnn = MLP(q_length,c_length,ms0)
         self.sector = np.zeros((k-1,2),dtype=np.int)
+        
     
     def update(self, u, si, sj):
         #Figure out which sector we are in at each tier
