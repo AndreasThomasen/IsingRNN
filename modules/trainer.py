@@ -1,21 +1,33 @@
 import torch
 import torch.nn as nn
-import torch.optim as optim
+from torch import optim
 import numpy as np
 
 import modules.ladder as ladder
 
+
+if torch.cuda.is_available():
+    dev = torch.device("cuda")
+else:
+    dev = torch.device("cpu")
+
 class Trainer(nn.Module):
-    def __init__(self,mask_length, r, c_length, k, q_length, layers, beta):
+    def __init__(self,mask_length, r, c_length, k, q_length, layers, beta, seq_length, n_batches):
         super(Trainer,self).__init__()
-        self.net = ladder.Ladder(mask_length, r, c_length, k, q_length, layers, "lstm")
+        
+        self.u = torch.ones([n_batches,seq_length,seq_length],device = dev,dtype = torch.float)
+        self.v = torch.ones([n_batches,seq_length,seq_length],device = dev,dtype = torch.long)
+        
+        self.net = ladder.Ladder(mask_length, r, c_length, k, q_length, layers, "lstm").to(dev)
         self.optimizer = optim.Adam(self.net.parameters(), lr = 1e-3, betas = (0.9, 0.999), eps = 1e-8)
-        self.objective = nn.CrossEntropyLoss()
+        
         self.c_length = c_length
         self.mask_length = mask_length
         self.k = k
         self.r = r
         self.beta = beta
+        self.seq_length = seq_length
+        self.n_batches = n_batches
         
     def anneal(self,beta):
         self.beta = beta
@@ -83,19 +95,18 @@ class Trainer(nn.Module):
         
         return fm, hc, m, abs_m
         
-    def train(self,u,v,epochs,minibatches,beta,prune_every=20):
+    def train(self,epochs,minibatches,beta,prune_every=20):
         self.f_array = torch.zeros(epochs,requires_grad=False)
         self.hc_array = torch.zeros(epochs,requires_grad=False)
         self.m_array = torch.zeros(epochs,requires_grad=False)
         self.abs_m_array = torch.zeros(epochs,requires_grad=False)
-        batches = v.size()[0]
         
         for i in range(epochs):
-            permutation = torch.randperm(batches)
-            for j in range(0,batches+1-minibatches,minibatches):
+            permutation = torch.randperm(self.n_batches)
+            for j in range(0,self.n_batches+1-minibatches,minibatches):
                 indices = permutation[j:j+minibatches]
-                u_minibatch = u[indices]
-                v_minibatch = v[indices]
+                u_minibatch = self.u[indices]
+                v_minibatch = self.v[indices]
                 f, hc, m, abs_m = self.step(u_minibatch,v_minibatch)
                 with torch.no_grad():
                     self.f_array[i] = f

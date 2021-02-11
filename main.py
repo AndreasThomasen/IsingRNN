@@ -1,14 +1,9 @@
-import torch
 import numpy as np
 import matplotlib.pyplot as plt
 import modules.trainer as trainer
 import exact
 import time
 
-if torch.cuda.is_available():
-    dev = torch.device("cuda")
-else:
-    dev = torch.device("cpu")
 
 
 r = [1]
@@ -16,7 +11,7 @@ k = 2
 c_length = 256
 n_batches = 1024
 q_length = 2
-epochs = 30
+epochs = 3
 prune_every = 20000
 mask_length = 4
 gen_seq_length = mask_length*4
@@ -33,15 +28,17 @@ heat_capacities = np.zeros(n_betas)
 magnetization = np.zeros(n_betas)
 abs_magnetization = np.zeros(n_betas)
 
-jorge = trainer.Trainer(mask_length,r,c_length,k,q_length,layers,betastart).to(dev)
+
+## Paralellism is implemented at the trainer level, not main level.
+jorge = trainer.Trainer(mask_length,r,c_length,k,q_length,layers,betastart,seq_length,n_batches)
+
+#jorge = torch.nn.DataParallel(jorge)
 
 for i in range(n_betas):
     beta = betas[i]
     
     jorge.anneal(beta)
     
-    u_test = torch.ones([n_batches,seq_length,seq_length],device = dev,dtype = torch.float)
-    v_test = torch.ones([n_batches,seq_length,seq_length],device = dev,dtype = torch.long)
     
     anf = exact.free_energy(beta,gen_seq_length,1)
     anc = exact.heat_capacity(beta,gen_seq_length,1)
@@ -50,7 +47,7 @@ for i in range(n_betas):
     print(f"Analytical heat capacity is {anc:0.4f}")
     
     tic = time.perf_counter()
-    f_array, hc_array, m_array, m_abs_array = jorge.train(u_test,v_test,epochs,n_batches,beta,prune_every)
+    f_array, hc_array, m_array, m_abs_array = jorge.train(epochs,n_batches,beta,prune_every)
     toc = time.perf_counter()
     
     free_energies[i] = f_array[-1]
